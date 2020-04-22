@@ -35,9 +35,30 @@ volatile uint8_t sys_rt_exec_accessory_override; // Global realtime executor bit
   volatile uint8_t sys_rt_exec_debug;
 #endif
 
-
 int main(void)
 {
+
+#define	ECCR	(*((volatile unsigned char *)0x56))
+  // set eeprom 1k
+  ECCR = 0x80;
+	ECCR = 0x40;
+  
+#if defined(F_CPU)
+    CLKPR = 0x80;
+    #if F_CPU == 32000000L
+        CLKPR = 0x00;
+    #elif F_CPU == 16000000L
+        CLKPR = 0x01;
+    #elif F_CPU == 8000000L
+        CLKPR = 0x02;
+    #elif F_CPU == 4000000L
+        CLKPR = 0x03;
+    #elif F_CPU == 2000000L
+        CLKPR = 0x04;
+    #elif F_CPU == 1000000L
+        CLKPR = 0x05;
+    #endif
+#endif
   // Initialize system upon power-up.
   serial_init();   // Setup serial baud rate and interrupts
   settings_init(); // Load Grbl settings from EEPROM

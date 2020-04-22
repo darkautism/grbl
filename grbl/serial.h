@@ -39,8 +39,12 @@
 
 void serial_init();
 
+void fake_serial_write(uint8_t ch);
+
 // Writes one byte to the TX serial buffer. Called by main program.
-void serial_write(uint8_t data);
+void orig_serial_write(uint8_t data);
+
+#define serial_write fake_serial_write
 
 // Fetches the first byte in the serial read buffer. Called by main program.
 uint8_t serial_read();

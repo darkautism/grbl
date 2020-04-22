@@ -61,29 +61,23 @@ uint8_t serial_get_tx_buffer_count()
   return (TX_RING_BUFFER - (ttail-serial_tx_buffer_head));
 }
 
-
 void serial_init()
 {
-  // Set baud rate
-  #if BAUD_RATE < 57600
-    uint16_t UBRR0_value = ((F_CPU / (8L * BAUD_RATE)) - 1)/2 ;
-    UCSR0A &= ~(1 << U2X0); // baud doubler off  - Only needed on Uno XXX
-  #else
-    uint16_t UBRR0_value = ((F_CPU / (4L * BAUD_RATE)) - 1)/2;
-    UCSR0A |= (1 << U2X0);  // baud doubler on for high baud rates, i.e. 115200
-  #endif
-  UBRR0H = UBRR0_value >> 8;
-  UBRR0L = UBRR0_value;
+  UCSR0A = _BV(U2X0); //Double speed mode USART0
+  UCSR0B = _BV(RXEN0) | _BV(TXEN0);
+  UCSR0C = _BV(UCSZ00) | _BV(UCSZ01);
+  UBRR0L = (uint8_t)(( (F_CPU + BAUD_RATE * 4L) / ((BAUD_RATE * 8L))) - 1 );
+}
 
-  // enable rx, tx, and interrupt on complete reception of a byte
-  UCSR0B |= (1<<RXEN0 | 1<<TXEN0 | 1<<RXCIE0);
 
-  // defaults to 8-bit, no parity, 1 stop bit
+void fake_serial_write(uint8_t ch) {
+  while (!(UCSR0A & _BV(UDRE0))) {  /* Spin */ }
+  UDR0 = ch;
 }
 
 
 // Writes one byte to the TX serial buffer. Called by main program.
-void serial_write(uint8_t data) {
+void orig_serial_write(uint8_t data) {
   // Calculate next head
   uint8_t next_head = serial_tx_buffer_head + 1;
   if (next_head == TX_RING_BUFFER) { next_head = 0; }
@@ -110,15 +104,14 @@ ISR(SERIAL_UDRE)
 
   // Send a byte from the buffer
   UDR0 = serial_tx_buffer[tail];
-
+  // UCSR0A |= 1<< TXC0;
   // Update tail position
-  tail++;
-  if (tail == TX_RING_BUFFER) { tail = 0; }
-
-  serial_tx_buffer_tail = tail;
+  serial_tx_buffer_tail = (tail + 1) % TX_BUFFER_SIZE;
 
   // Turn off Data Register Empty Interrupt to stop tx-streaming if this concludes the transfer
-  if (tail == serial_tx_buffer_head) { UCSR0B &= ~(1 << UDRIE0); }
+  if (serial_tx_buffer_tail == serial_tx_buffer_head) { 
+    UCSR0B &= ~(1 << UDRIE0); 
+  }
 }
 
 
@@ -134,7 +127,6 @@ uint8_t serial_read()
     tail++;
     if (tail == RX_RING_BUFFER) { tail = 0; }
     serial_rx_buffer_tail = tail;
-
     return data;
   }
 }
@@ -144,7 +136,6 @@ ISR(SERIAL_RX)
 {
   uint8_t data = UDR0;
   uint8_t next_head;
-
   // Pick off realtime command characters directly from the serial stream. These characters are
   // not passed into the main buffer, but these set system state flag bits for realtime execution.
   switch (data) {
