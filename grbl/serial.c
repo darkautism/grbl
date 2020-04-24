@@ -64,7 +64,7 @@ uint8_t serial_get_tx_buffer_count()
 void serial_init()
 {
   UCSR0A = _BV(U2X0); //Double speed mode USART0
-  UCSR0B = _BV(RXEN0) | _BV(TXEN0);
+  UCSR0B = _BV(RXEN0) | _BV(TXEN0) | _BV(RXCIE0);
   UCSR0C = _BV(UCSZ00) | _BV(UCSZ01);
   UBRR0L = (uint8_t)(( (F_CPU + BAUD_RATE * 4L) / ((BAUD_RATE * 8L))) - 1 );
 }
@@ -74,46 +74,6 @@ void fake_serial_write(uint8_t ch) {
   while (!(UCSR0A & _BV(UDRE0))) {  /* Spin */ }
   UDR0 = ch;
 }
-
-
-// Writes one byte to the TX serial buffer. Called by main program.
-void orig_serial_write(uint8_t data) {
-  // Calculate next head
-  uint8_t next_head = serial_tx_buffer_head + 1;
-  if (next_head == TX_RING_BUFFER) { next_head = 0; }
-
-  // Wait until there is space in the buffer
-  while (next_head == serial_tx_buffer_tail) {
-    // TODO: Restructure st_prep_buffer() calls to be executed here during a long print.
-    if (sys_rt_exec_state & EXEC_RESET) { return; } // Only check for abort to avoid an endless loop.
-  }
-
-  // Store data and advance head
-  serial_tx_buffer[serial_tx_buffer_head] = data;
-  serial_tx_buffer_head = next_head;
-
-  // Enable Data Register Empty Interrupt to make sure tx-streaming is running
-  UCSR0B |=  (1 << UDRIE0);
-}
-
-
-// Data Register Empty Interrupt handler
-ISR(SERIAL_UDRE)
-{
-  uint8_t tail = serial_tx_buffer_tail; // Temporary serial_tx_buffer_tail (to optimize for volatile)
-
-  // Send a byte from the buffer
-  UDR0 = serial_tx_buffer[tail];
-  // UCSR0A |= 1<< TXC0;
-  // Update tail position
-  serial_tx_buffer_tail = (tail + 1) % TX_BUFFER_SIZE;
-
-  // Turn off Data Register Empty Interrupt to stop tx-streaming if this concludes the transfer
-  if (serial_tx_buffer_tail == serial_tx_buffer_head) { 
-    UCSR0B &= ~(1 << UDRIE0); 
-  }
-}
-
 
 // Fetches the first byte in the serial read buffer. Called by main program.
 uint8_t serial_read()
@@ -132,7 +92,15 @@ uint8_t serial_read()
 }
 
 
-ISR(SERIAL_RX)
+#if defined(USART_RX_vect)
+  ISR(USART_RX_vect)
+#elif defined(USART0_RX_vect)
+  ISR(USART0_RX_vect)
+#elif defined(USART_RXC_vect)
+  ISR(USART_RXC_vect) // ATmega8
+#else
+  #error "Don't know what the Data Received vector is called for Serial"
+#endif
 {
   uint8_t data = UDR0;
   uint8_t next_head;
