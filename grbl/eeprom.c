@@ -110,119 +110,121 @@ int memcpy_from_eeprom_with_checksum(char *destination, unsigned int source, uns
   return(checksum == eeprom_get_char(source));
 }
 
-// #define	e2pReset()	do { ECCR |= 0x20; } while(0)
-// #define	e2pSWMON()	do { ECCR = 0x80; ECCR |= 0x10; } while(0);
-// #define	e2pSWMOFF()	do { ECCR = 0x80; ECCR &= 0xEF; } while(0);
+#if defined(LGT8F_32BITE2PROM)
 
-// #define E2PD0	(*((volatile unsigned char *)0x40))	
-// #define E2PD1	(*((volatile unsigned char *)0x5A))	
-// #define E2PD2	(*((volatile unsigned char *)0x57))	
-// #define E2PD3	(*((volatile unsigned char *)0x5C))	
-// #define	ECCR	(*((volatile unsigned char *)0x56))
+#define	e2pReset()	do { ECCR |= 0x20; } while(0)
+#define	e2pSWMON()	do { ECCR = 0x80; ECCR |= 0x10; } while(0);
+#define	e2pSWMOFF()	do { ECCR = 0x80; ECCR &= 0xEF; } while(0);
 
-// void memcpy_to_eeprom_with_checksum(unsigned int destination, char *source, unsigned int size)
-// {
-// 	uint8_t i;
-//     uint8_t __bk_sreg;
-//     uint8_t __checksum;
-//     e2pReset();
-//     e2pSWMON();
-//     EEARH = destination >> 8;
-//     EEARL = destination;
+#define E2PD0	(*((volatile unsigned char *)0x40))	
+#define E2PD1	(*((volatile unsigned char *)0x5A))	
+#define E2PD2	(*((volatile unsigned char *)0x57))	
+#define E2PD3	(*((volatile unsigned char *)0x5C))	
+#define	ECCR	(*((volatile unsigned char *)0x56))
 
-//     for (i = 0; i < size; i += 4)
-//     {
-//         if (size - i <= 4)
-//         {
-//             e2pSWMOFF();
-//             EEARL = 0;
-//             EEDR = source[i];
-//             __checksum = ((__checksum << 1) | (__checksum >> 7)) + EEDR;
+void memcpy_to_eeprom_with_checksum(unsigned int destination, char *source, unsigned int size)
+{
+	uint8_t i;
+    uint8_t __bk_sreg;
+    uint8_t __checksum;
+    e2pReset();
+    e2pSWMON();
+    EEARH = destination >> 8;
+    EEARL = destination;
 
-//             if (size - i > 1)
-//             {
-//                 EEARL = 1;
-//                 EEDR = source[i + 1];
-//                 __checksum += EEDR;
-//             }
-//             if (size - i > 2)
-//             {
-//                 EEARL = 2;
-//                 EEDR = source[i + 2];
-//                 __checksum += EEDR;
-//             }
-//             if (size - i > 3)
-//             {
-//                 EEARL = 3;
-//                 EEDR = source[i + 3];
-//                 __checksum += EEDR;
-//             }
-//         }
-//         else
-//         {
-//             E2PD0 = source[i];
-//             E2PD1 = source[i + 1];
-//             E2PD2 = source[i + 2];
-//             E2PD3 = source[i + 3];
-//             __checksum = ((__checksum << 1) | (__checksum >> 7)) + E2PD0 + E2PD1 + E2PD2 + E2PD3;
-//         }
-//         __bk_sreg = SREG;
-//         cli();
-//         EECR = 0x44;
-//         EECR = 0x42;
-//         SREG = __bk_sreg;
-// 		sei();
-//     }
-// 	eeprom_put_char(destination+size, __checksum);
-// }
+    for (i = 0; i < size; i += 4)
+    {
+        if (size - i <= 4)
+        {
+            e2pSWMOFF();
+            EEARL = 0;
+            EEDR = source[i];
+            __checksum = ((__checksum << 1) | (__checksum >> 7)) + EEDR;
 
-// int memcpy_from_eeprom_with_checksum(char *destination, unsigned int source, unsigned int size)
-// {
-// 	uint8_t i;
-//     uint8_t __checksum;
-//     e2pReset();
-//     e2pSWMON();
+            if (size - i > 1)
+            {
+                EEARL = 1;
+                EEDR = source[i + 1];
+                __checksum += EEDR;
+            }
+            if (size - i > 2)
+            {
+                EEARL = 2;
+                EEDR = source[i + 2];
+                __checksum += EEDR;
+            }
+            if (size - i > 3)
+            {
+                EEARL = 3;
+                EEDR = source[i + 3];
+                __checksum += EEDR;
+            }
+        }
+        else
+        {
+            E2PD0 = source[i];
+            E2PD1 = source[i + 1];
+            E2PD2 = source[i + 2];
+            E2PD3 = source[i + 3];
+            __checksum = ((__checksum << 1) | (__checksum >> 7)) + E2PD0 + E2PD1 + E2PD2 + E2PD3;
+        }
+        __bk_sreg = SREG;
+        cli();
+        EECR = 0x44;
+        EECR = 0x42;
+        SREG = __bk_sreg;
+		sei();
+    }
+	eeprom_put_char(destination+size, __checksum);
+}
 
-//     EEARH = source >> 8;
-//     EEARL = source;
+int memcpy_from_eeprom_with_checksum(char *destination, unsigned int source, unsigned int size)
+{
+	uint8_t i;
+    uint8_t __checksum;
+    e2pReset();
+    e2pSWMON();
 
-//     for (i = 0; i < size; i += 4)
-//     {
-//         if (size - i <= 4)
-//             e2pSWMOFF();
+    EEARH = source >> 8;
+    EEARL = source;
 
-//         EECR |= (1 << EERE);
+    for (i = 0; i < size; i += 4)
+    {
+        if (size - i <= 4)
+            e2pSWMOFF();
 
-//         __asm__ __volatile__("nop" ::);
-//         __asm__ __volatile__("nop" ::);
+        EECR |= (1 << EERE);
 
-//         destination[i] = E2PD0;
-//         __checksum = ((__checksum << 1) | (__checksum >> 7)) + E2PD0;
-//         if (size - i > 1)
-//         {
-//             destination[i + 1] = E2PD1;
-//             __checksum += E2PD1;
-//         }
-//         if (size - i > 2)
-//         {
-//             destination[i + 2] = E2PD2;
-//             __checksum += E2PD2;
-//         }
-//         if (size - i > 3)
-//         {
-//             destination[i + 3] = E2PD3;
-//             __checksum += E2PD3;
-//         }
-//     }
-// 	fake_serial_write(__checksum/100%10+'0');
-// 	fake_serial_write(__checksum/10%10+'0');
-// 	fake_serial_write(__checksum%10+'0');
-// 	fake_serial_write('\n');
-// 	fake_serial_write(eeprom_get_char(source+size)/100%10+'0');
-// 	fake_serial_write(eeprom_get_char(source+size)/10%10+'0');
-// 	fake_serial_write(eeprom_get_char(source+size)%10+'0');
-// 	fake_serial_write('\n');
-//     return (__checksum == eeprom_get_char(source+size));
-// }
+        __asm__ __volatile__("nop" ::);
+        __asm__ __volatile__("nop" ::);
 
-// end of file
+        destination[i] = E2PD0;
+        __checksum = ((__checksum << 1) | (__checksum >> 7)) + E2PD0;
+        if (size - i > 1)
+        {
+            destination[i + 1] = E2PD1;
+            __checksum += E2PD1;
+        }
+        if (size - i > 2)
+        {
+            destination[i + 2] = E2PD2;
+            __checksum += E2PD2;
+        }
+        if (size - i > 3)
+        {
+            destination[i + 3] = E2PD3;
+            __checksum += E2PD3;
+        }
+    }
+	fake_serial_write(__checksum/100%10+'0');
+	fake_serial_write(__checksum/10%10+'0');
+	fake_serial_write(__checksum%10+'0');
+	fake_serial_write('\n');
+	fake_serial_write(eeprom_get_char(source+size)/100%10+'0');
+	fake_serial_write(eeprom_get_char(source+size)/10%10+'0');
+	fake_serial_write(eeprom_get_char(source+size)%10+'0');
+	fake_serial_write('\n');
+    return (__checksum == eeprom_get_char(source+size));
+}
+
+#endif

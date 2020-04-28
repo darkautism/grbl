@@ -92,15 +92,7 @@ uint8_t serial_read()
 }
 
 
-#if defined(USART_RX_vect)
-  ISR(USART_RX_vect)
-#elif defined(USART0_RX_vect)
-  ISR(USART0_RX_vect)
-#elif defined(USART_RXC_vect)
-  ISR(USART_RXC_vect) // ATmega8
-#else
-  #error "Don't know what the Data Received vector is called for Serial"
-#endif
+ISR(SERIAL_RX)
 {
   uint8_t data = UDR0;
   uint8_t next_head;
